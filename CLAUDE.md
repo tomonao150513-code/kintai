@@ -33,6 +33,9 @@ When you change behavior that the spec or docs describe, update those files in t
   stop and report: what changed, what was run/verified (tests, `runserver`), and anything left open.
   Wait for the user's go-ahead before starting the next task or phase — don't chain phases automatically.
   Tick the checkbox in [docs/task-breakdown.md](docs/task-breakdown.md) as part of that report.
+- **One branch per phase (from P1 on).** Start each phase with `git switch -c feature/p<N>-<slug>` off
+  `main`, commit the phase's work there, and leave merging to `main` to the user after their review.
+  P0 landed directly on `main` ("初めのコミット"); every phase after it gets its own branch.
 
 ## Planned commands
 

@@ -105,8 +105,9 @@ class Meta:
             name="uniq_running_timer_per_user",
         ),
         # 終了は開始より後（要件 F-PUNCH-10）
+        # Django 5.1+ では CheckConstraint の引数は check= ではなく condition=
         models.CheckConstraint(
-            check=models.Q(end_at__isnull=True) | models.Q(end_at__gt=models.F("start_at")),
+            condition=models.Q(end_at__isnull=True) | models.Q(end_at__gt=models.F("start_at")),
             name="timeentry_end_after_start",
         ),
     ]

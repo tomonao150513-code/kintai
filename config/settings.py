@@ -72,6 +72,10 @@ ASGI_APPLICATION = "config.asgi.application"
 
 DATABASES = {"default": env.db("DATABASE_URL")}
 
+# SQLite のときはテスト DB をインメモリにして高速化（開発 DB には影響しない）
+if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
+    DATABASES["default"]["TEST"] = {"NAME": None}
+
 
 # Password validation
 

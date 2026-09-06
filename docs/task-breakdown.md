@@ -25,14 +25,14 @@
 > 開発用 superuser: `admin` / `admin12345`（ローカルのみ。必要なら各自変更・再作成）。
 > 起動: `.\.venv\Scripts\Activate.ps1` → `python manage.py runserver`。品質チェック: `ruff check .` / `black --check .` / `pytest`。
 
-## P1 モデル + 管理画面
+## P1 モデル + 管理画面 ✅ 完了（2026-09-07、ブランチ `feature/p1-models`）
 
-- [ ] `attendance/models.py`: `TimeStampedModel` / `Project` / `Task` / `TimeEntry`（[data-model.md](data-model.md) のとおり。制約名も固定）
-- [ ] `hex_color_validator`
-- [ ] `makemigrations` → 生成物レビュー → `migrate`
-- [ ] `attendance/admin.py`: 3 モデル登録（list_display, list_filter, search_fields, `TimeEntry` は `user`/`task`/`start_at` を表示、`duration` を read-only 表示）
-- [ ] `attendance/tests/test_models_constraints.py`: 実行中タイマー 1 件制約 / `end_at>start_at` / 重複 `clean()`
-- **完了条件**: 管理画面で 3 モデルの CRUD ができ、制約テストが green
+- [x] `attendance/models.py`: `TimeStampedModel` / `Project` / `Task` / `TimeEntry`（[data-model.md](data-model.md) のとおり。制約名も固定）
+- [x] `hex_color_validator`
+- [x] `makemigrations`（`attendance/migrations/0001_initial.py`）→ 生成物レビュー → `migrate`
+- [x] `attendance/admin.py`: 3 モデル登録（list_display, list_filter, search_fields, `TimeEntry` は `task`/`user`/`start_at`/実働時間/`source` を表示、`duration`/`work_date`/日時を read-only。`owner`/`user` は現在ユーザーを初期値に）
+- [x] `attendance/tests/`（パッケージ化）+ `test_models_constraints.py`: 実行中タイマー 1 件制約 / `end_at>start_at` チェック制約 / 重複・境界の `clean()` / ユニーク制約 / `is_selectable` / `duration_seconds` 丸めなし（12 tests, all green）
+- **完了条件**: 管理画面で 3 モデルの CRUD ができ、制約テストが green → ✅ 確認済み（admin で Project→Task→TimeEntry を作成、changelist に実働時間 `1:30:24` 表示、重複エントリは admin でも `clean()` で拒否）
 
 ## P2 打刻 + ダッシュボード
 
