@@ -1,0 +1,19 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+extend-exclude = "/migrations/"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "DJ"]
+
+[tool.ruff.lint.per-file-ignores]
+"config/settings.py" = ["E402"]

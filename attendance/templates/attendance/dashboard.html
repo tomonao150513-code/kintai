@@ -1,0 +1,15 @@
+{% extends "attendance/base.html" %}
+
+{% block title %}ダッシュボード | タスク別勤怠{% endblock %}
+
+{% block content %}
+  <h1 class="h3 mb-3">ダッシュボード</h1>
+  <div class="card">
+    <div class="card-body">
+      <p class="mb-1">ようこそ、{{ user.get_username }} さん。</p>
+      <p class="text-body-secondary mb-0">
+        環境構築（P0）が完了しています。打刻・集計・エクスポートは以降のフェーズで実装します。
+      </p>
+    </div>
+  </div>
+{% endblock %}
