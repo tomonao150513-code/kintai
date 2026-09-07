@@ -117,6 +117,7 @@ class TimeEntry(TimeStampedModel):
     )
     start_at = models.DateTimeField("開始時刻", db_index=True)
     end_at = models.DateTimeField("終了時刻", null=True, blank=True)
+    break_seconds = models.PositiveIntegerField("休憩秒数", default=0)
     note = models.TextField("メモ", blank=True, default="")
     source = models.CharField(
         "入力元",
@@ -158,13 +159,18 @@ class TimeEntry(TimeStampedModel):
         return self.end_at or timezone.now()
 
     @property
-    def duration(self) -> timedelta:
-        return self.effective_end - self.start_at
+    def gross_seconds(self) -> int:
+        # 休憩控除前の経過秒。丸めなし（マイクロ秒だけ切り捨て）。
+        return int((self.effective_end - self.start_at).total_seconds())
 
     @property
     def duration_seconds(self) -> int:
-        # 丸めなし。timedelta.total_seconds() の小数部（マイクロ秒）だけを切り捨てる。
-        return int(self.duration.total_seconds())
+        # 実働秒 = 経過秒 − 休憩秒（0 未満にはしない）。ADR-0004 / data-model §3.3 案1。
+        return max(0, self.gross_seconds - self.break_seconds)
+
+    @property
+    def duration(self) -> timedelta:
+        return timedelta(seconds=self.duration_seconds)
 
     @property
     def work_date(self):
@@ -177,6 +183,8 @@ class TimeEntry(TimeStampedModel):
             return
         if self.end_at and self.end_at <= self.start_at:
             raise ValidationError({"end_at": "終了時刻は開始時刻より後にしてください。"})
+        if self.end_at and self.break_seconds > self.gross_seconds:
+            raise ValidationError({"break_seconds": "休憩時間が実働時間を超えています。"})
         # 同一ユーザー内の時間帯重複禁止（DB 制約では表現できないため clean で検証）
         overlap = (
             TimeEntry.objects.filter(user=self.user)
@@ -186,3 +194,39 @@ class TimeEntry(TimeStampedModel):
         )
         if overlap.exists():
             raise ValidationError("同じ時間帯に別の記録があります。時刻を調整してください。")
+
+
+class ProjectMembership(TimeStampedModel):
+    """プロジェクトのメンバー（将来のチーム対応、docs/task-breakdown.md P7）。
+
+    owner は常に管理者相当。ここに追加されたユーザーはそのプロジェクトの記録を閲覧・集計できる。
+    """
+
+    class Role(models.TextChoices):
+        MEMBER = "member", "メンバー"
+        MANAGER = "manager", "マネージャー"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+        verbose_name="プロジェクト",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="project_memberships",
+        verbose_name="ユーザー",
+    )
+    role = models.CharField("役割", max_length=10, choices=Role.choices, default=Role.MEMBER)
+
+    class Meta:
+        verbose_name = "プロジェクトメンバー"
+        verbose_name_plural = "プロジェクトメンバー"
+        ordering = ["project__name", "user__username"]
+        constraints = [
+            models.UniqueConstraint(fields=["project", "user"], name="uniq_project_membership"),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name} / {self.user}"

@@ -53,6 +53,7 @@ def test_columns_order():
         "日付",
         "開始時刻",
         "終了時刻",
+        "休憩秒数",
         "実働秒数",
         "実働時間(HH:MM:SS)",
         "実働時間(h)",
@@ -86,7 +87,7 @@ def test_csv_has_bom_crlf_header_and_total(entries, owner):
     assert "\r\n" in text
     lines = text.split("\r\n")
     assert lines[0].split(",")[0] == "日付"
-    assert lines[0].startswith("日付,開始時刻,終了時刻,実働秒数")
+    assert lines[0].startswith("日付,開始時刻,終了時刻,休憩秒数,実働秒数")
     # 最終データ行 = 合計行
     assert "合計" in lines[3]
     assert resp["Content-Type"] == "text/csv; charset=utf-8"
@@ -105,12 +106,14 @@ def test_xlsx_readback_numeric_types_and_sheets(entries, owner):
     assert wb.sheetnames == ["勤怠明細", "集計"]
     ws = wb["勤怠明細"]
     assert [c.value for c in ws[1]] == COLUMNS
-    # 2 行目 = 最初の明細。実働秒数(4列目) と 実働時間h(6列目) は数値
-    assert ws.cell(row=2, column=4).value == 5424
-    assert isinstance(ws.cell(row=2, column=4).value, int)
-    assert isinstance(ws.cell(row=2, column=6).value, float)
+    secs_col = COLUMNS.index("実働秒数") + 1
+    hours_col = COLUMNS.index("実働時間(h)") + 1
+    # 2 行目 = 最初の明細。実働秒数 と 実働時間(h) は数値
+    assert ws.cell(row=2, column=secs_col).value == 5424
+    assert isinstance(ws.cell(row=2, column=secs_col).value, int)
+    assert isinstance(ws.cell(row=2, column=hours_col).value, float)
     # 最終行 = 合計
-    assert ws.cell(row=ws.max_row, column=4).value == 5424 + 3600
+    assert ws.cell(row=ws.max_row, column=secs_col).value == 5424 + 3600
     summary = wb["集計"]
     assert summary.cell(row=1, column=1).value == "プロジェクト"
     assert summary.cell(row=summary.max_row, column=1).value == "合計"

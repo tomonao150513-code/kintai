@@ -40,25 +40,33 @@ def datetime_range(date_from, date_to):
     )
 
 
-def _completed_in_range(user, date_from, date_to):
+def _completed(base_qs, date_from, date_to):
     start_dt, end_dt = datetime_range(date_from, date_to)
-    return TimeEntry.objects.filter(
-        user=user,
+    return base_qs.filter(
         end_at__isnull=False,
         start_at__gte=start_dt,
         start_at__lt=end_dt,
     )
 
 
-def total_seconds(user, date_from, date_to):
+def _resolve_base(user, entries):
+    """user か、明示的な TimeEntry クエリセット（entries）から基底 QS を作る。"""
+    if entries is not None:
+        return entries
+    return TimeEntry.objects.filter(user=user)
+
+
+def total_seconds(user, date_from, date_to, *, entries=None):
     """期間内（開始日基準）の完了記録の実働秒合計。丸めなし。"""
-    return sum(e.duration_seconds for e in _completed_in_range(user, date_from, date_to))
+    base = _completed(_resolve_base(user, entries), date_from, date_to)
+    return sum(e.duration_seconds for e in base)
 
 
-def daily_totals(user, date_from, date_to):
+def daily_totals(user, date_from, date_to, *, entries=None):
     """日別合計。記録ゼロの日も 0 で埋める。[{"date": date, "seconds": int}, ...]。"""
+    base = _completed(_resolve_base(user, entries), date_from, date_to)
     buckets: dict = {}
-    for entry in _completed_in_range(user, date_from, date_to):
+    for entry in base:
         d = entry.work_date
         buckets[d] = buckets.get(d, 0) + entry.duration_seconds
     out = []
@@ -80,10 +88,12 @@ def _breakdown(rows):
     return {"total_seconds": total, "items": items}
 
 
-def by_project(user, date_from, date_to):
+def by_project(user, date_from, date_to, *, entries=None):
     """プロジェクト別内訳（docs/api-charts.md）。"""
     buckets: dict = {}
-    qs = _completed_in_range(user, date_from, date_to).select_related("task__project")
+    qs = _completed(_resolve_base(user, entries), date_from, date_to).select_related(
+        "task__project"
+    )
     for entry in qs:
         project = entry.task.project
         row = buckets.setdefault(
@@ -99,9 +109,11 @@ def by_project(user, date_from, date_to):
     return _breakdown(list(buckets.values()))
 
 
-def by_task(user, date_from, date_to, project=None):
+def by_task(user, date_from, date_to, project=None, *, entries=None):
     """タスク別内訳。project 指定で当該プロジェクト内に限定。"""
-    qs = _completed_in_range(user, date_from, date_to).select_related("task__project")
+    qs = _completed(_resolve_base(user, entries), date_from, date_to).select_related(
+        "task__project"
+    )
     if project is not None:
         qs = qs.filter(task__project=project)
     buckets: dict = {}
@@ -115,6 +127,25 @@ def by_task(user, date_from, date_to, project=None):
                 "project_id": task.project_id,
                 "project_name": task.project.name,
                 "color": task.project.color,
+                "seconds": 0,
+            },
+        )
+        row["seconds"] += entry.duration_seconds
+    return _breakdown(list(buckets.values()))
+
+
+def by_user(entries, date_from, date_to):
+    """メンバー別内訳（チーム対応 P7）。entries は対象範囲の TimeEntry クエリセット。"""
+    qs = _completed(entries, date_from, date_to).select_related("user")
+    buckets: dict = {}
+    for entry in qs:
+        member = entry.user
+        row = buckets.setdefault(
+            member.id,
+            {
+                "user_id": member.id,
+                "name": member.get_username(),
+                "color": None,
                 "seconds": 0,
             },
         )

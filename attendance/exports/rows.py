@@ -10,6 +10,7 @@ COLUMNS = [
     "日付",
     "開始時刻",
     "終了時刻",
+    "休憩秒数",
     "実働秒数",
     "実働時間(HH:MM:SS)",
     "実働時間(h)",
@@ -20,7 +21,7 @@ COLUMNS = [
     "入力元",
 ]
 
-NUMERIC_COLUMNS = {"実働秒数", "実働時間(h)"}
+NUMERIC_COLUMNS = {"休憩秒数", "実働秒数", "実働時間(h)"}
 
 
 def completed_entries(user, date_from, date_to, *, project=None, task=None):
@@ -51,6 +52,7 @@ def _entry_row(entry):
         "日付": local_start.strftime("%Y-%m-%d"),
         "開始時刻": local_start.strftime("%H:%M:%S"),
         "終了時刻": local_end.strftime("%H:%M:%S"),
+        "休憩秒数": entry.break_seconds,
         "実働秒数": seconds,
         "実働時間(HH:MM:SS)": format_hms_colon(seconds),
         "実働時間(h)": format_hours_decimal(seconds),
@@ -63,10 +65,11 @@ def _entry_row(entry):
 
 
 def build_rows(entries):
-    """(明細行のリスト, 合計行) を返す。合計行は列1〜3 空・列7 に "合計"。"""
+    """(明細行のリスト, 合計行) を返す。合計行は日付〜終了列は空・プロジェクト列に "合計"。"""
     rows = [_entry_row(e) for e in entries]
     total = sum(r["実働秒数"] for r in rows)
     total_row = dict.fromkeys(COLUMNS, "")
+    total_row["休憩秒数"] = sum(r["休憩秒数"] for r in rows)
     total_row["実働秒数"] = total
     total_row["実働時間(HH:MM:SS)"] = format_hms_colon(total)
     total_row["実働時間(h)"] = format_hours_decimal(total)

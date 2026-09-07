@@ -90,13 +90,22 @@
 - [x] 例外時・0 件時・不正入力時の画面挙動テスト: `test_views_crud.py`（ダッシュボード空、project/task の作成・アーカイブ往復、timer start/stop/switch、手動追加のハッピー/重複エラー、entry 編集・削除、実行中削除ブロック、レポート 0 件・不正日付フォールバック）/ `test_templatetags.py`
 - **完了条件**: 主要ロジックにテストがあり、`pytest` / `ruff` が green → ✅（90 tests green、ruff/black クリーン、カバレッジ 87%）
 
-## P7（将来）チーム対応
+## P7 チーム対応 + 休憩控除 ✅ 完了（2026-09-07、ブランチ `feature/p7-team`）
 
-- [ ] `accounts` に `ProjectMembership`（中間テーブル）
-- [ ] 一覧・集計クエリの「本人絞り込み」を「管理者=全件 / 一般=本人」に分岐
-- [ ] レポートに「メンバー別」軸
-- [ ] 休憩控除（[data-model.md](data-model.md) §3.3 の案1 or 案2）
-- **完了条件**: 他メンバー分を管理者が集計できる
+- [x] `ProjectMembership`（`attendance` アプリ、`accounts` ではなく import 依存回避のため。`(project,user)` ユニーク、role=member/manager）+ 管理画面（inline + 単体 admin）
+- [x] `services/scoping.py`: `is_admin` / `visible_projects` / `visible_entries`（管理者=全件、一般=自分 + owner/member プロジェクト）/ `can_see_team`
+- [x] 勤怠一覧・レポートに `?scope=team` を追加（`can_see_team` のときだけ切替リンク表示）。一覧は「利用者」列、他人の行は編集/削除ボタン非表示
+- [x] レポートに「メンバー別」軸（`axis=user`、team スコープ時のみ）+ `aggregation.by_user`
+- [x] グラフ API を team スコープ対応（`?scope=team`）+ 新 `GET /api/stats/by-user/`
+- [x] **休憩控除**（[data-model.md](data-model.md) §3.3 案1）: `TimeEntry.break_seconds`、`gross_seconds` / `duration_seconds = max(0, gross - break)`、`clean()` で break ≤ gross 検証、`TimeEntryForm` に「休憩（分）」、CSV/Excel に「休憩秒数」列（計 12 列）、admin 表示
+- [x] マイグレーション `0002_timeentry_break_seconds_projectmembership`
+- [x] tests: `test_team.py`（休憩控除、scoping の member/stranger/admin、`by_user`、レポート team view / user 軸拒否、`stats_by_user`）。export/aggregation の既存テストも 12 列・新シグネチャに更新
+- **完了条件**: 他メンバー分を管理者（またはプロジェクト owner/member）が集計できる → ✅
+
+### P7 後に効いてくる設計変更（要 docs 追随）
+
+- [data-model.md](data-model.md) §3.3 / §3.4 更新済み。[export-spec.md](export-spec.md) を 12 列に更新済み。
+- [api-charts.md](api-charts.md) に `by-user` と `?scope=team` を追記すること（未反映）。
 
 ---
 

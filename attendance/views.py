@@ -19,7 +19,7 @@ from attendance.forms import (
     TimeEntryForm,
 )
 from attendance.models import Project, Task, TimeEntry
-from attendance.services import aggregation
+from attendance.services import aggregation, scoping
 from attendance.services import timer as timer_service
 from attendance.services.formatting import greeting_message
 
@@ -234,10 +234,18 @@ def entry_list(request):
     elif not date_to:
         date_to = date_from
 
+    can_team = scoping.can_see_team(request.user)
+    team_view = can_team and request.GET.get("scope") == "team"
+    base = (
+        scoping.visible_entries(request.user)
+        if team_view
+        else TimeEntry.objects.filter(user=request.user)
+    )
+
     start_dt, end_dt = aggregation.datetime_range(date_from, date_to)
     entries = (
-        TimeEntry.objects.filter(user=request.user, start_at__gte=start_dt, start_at__lt=end_dt)
-        .select_related("task", "task__project")
+        base.filter(start_at__gte=start_dt, start_at__lt=end_dt)
+        .select_related("task", "task__project", "user")
         .order_by("-start_at")
     )
     if project:
@@ -266,6 +274,8 @@ def entry_list(request):
             "running_count": running_count,
             "date_from": date_from,
             "date_to": date_to,
+            "can_team": can_team,
+            "team_view": team_view,
         },
     )
 
@@ -280,6 +290,7 @@ def entry_create(request):
                 form.cleaned_data["start_at"],
                 form.cleaned_data["end_at"],
                 form.cleaned_data.get("note", ""),
+                break_seconds=form.break_seconds,
             )
         except TimerError as exc:
             form.add_error(None, str(exc))
@@ -305,6 +316,7 @@ def entry_edit(request, pk):
                 start_at=form.cleaned_data["start_at"],
                 end_at=form.cleaned_data["end_at"],
                 note=form.cleaned_data.get("note", ""),
+                break_seconds=form.break_seconds,
             )
         except TimerError as exc:
             form.add_error(None, str(exc))
@@ -350,34 +362,52 @@ def _resolve_period(request):
 
 def report(request):
     date_from, date_to = _resolve_period(request)
+    can_team = scoping.can_see_team(request.user)
+    team_view = can_team and request.GET.get("scope") == "team"
+
     axis = request.GET.get("axis", "project")
-    if axis not in ("project", "task"):
+    allowed_axes = ("project", "task", "user") if team_view else ("project", "task")
+    if axis not in allowed_axes:
         axis = "project"
+
+    entries = scoping.visible_entries(request.user) if team_view else None
 
     raw_project = request.GET.get("project", "")
     project = None
     if raw_project.isdigit():
-        project = Project.objects.filter(pk=int(raw_project), owner=request.user).first()
+        project = scoping.visible_projects(request.user).filter(pk=int(raw_project)).first()
 
-    daily = aggregation.daily_totals(request.user, date_from, date_to)
+    daily = aggregation.daily_totals(request.user, date_from, date_to, entries=entries)
     total = sum(d["seconds"] for d in daily)
     worked_days = sum(1 for d in daily if d["seconds"] > 0)
 
-    if axis == "task":
-        breakdown = aggregation.by_task(request.user, date_from, date_to, project=project)
+    if axis == "user":
+        breakdown = aggregation.by_user(scoping.visible_entries(request.user), date_from, date_to)
+    elif axis == "task":
+        breakdown = aggregation.by_task(
+            request.user, date_from, date_to, project=project, entries=entries
+        )
     else:
-        breakdown = aggregation.by_project(request.user, date_from, date_to)
+        breakdown = aggregation.by_project(request.user, date_from, date_to, entries=entries)
+
+    project_options = (
+        scoping.visible_projects(request.user).order_by("name")
+        if team_view
+        else Project.objects.filter(owner=request.user).order_by("name")
+    )
 
     context = {
         "date_from": date_from,
         "date_to": date_to,
         "axis": axis,
         "project": project,
-        "projects": Project.objects.filter(owner=request.user).order_by("name"),
+        "projects": project_options,
         "total_seconds": total,
         "worked_days": worked_days,
         "avg_seconds": round(total / worked_days) if worked_days else 0,
         "breakdown": breakdown,
+        "can_team": can_team,
+        "team_view": team_view,
     }
     return render(request, "attendance/report.html", context)
 
@@ -403,6 +433,13 @@ def _json_no_store(payload):
     return resp
 
 
+def _stats_entries(request):
+    """`?scope=team` かつ権限があればチーム範囲の TimeEntry QS、なければ None（本人のみ）。"""
+    if request.GET.get("scope") == "team" and scoping.can_see_team(request.user):
+        return scoping.visible_entries(request.user)
+    return None
+
+
 def stats_daily(request):
     bounds = _stats_bounds(request)
     if isinstance(bounds, JsonResponse):
@@ -410,7 +447,9 @@ def stats_daily(request):
     date_from, date_to = bounds
     series = [
         {"date": row["date"].isoformat(), "seconds": row["seconds"]}
-        for row in aggregation.daily_totals(request.user, date_from, date_to)
+        for row in aggregation.daily_totals(
+            request.user, date_from, date_to, entries=_stats_entries(request)
+        )
     ]
     return _json_no_store(
         {
@@ -428,7 +467,7 @@ def stats_by_project(request):
     if isinstance(bounds, JsonResponse):
         return bounds
     date_from, date_to = bounds
-    data = aggregation.by_project(request.user, date_from, date_to)
+    data = aggregation.by_project(request.user, date_from, date_to, entries=_stats_entries(request))
     data["from"] = date_from.isoformat()
     data["to"] = date_to.isoformat()
     return _json_no_store(data)
@@ -442,11 +481,24 @@ def stats_by_task(request):
     raw_project = request.GET.get("project", "")
     project = None
     if raw_project.isdigit():
-        project = Project.objects.filter(pk=int(raw_project), owner=request.user).first()
-    data = aggregation.by_task(request.user, date_from, date_to, project=project)
+        project = scoping.visible_projects(request.user).filter(pk=int(raw_project)).first()
+    data = aggregation.by_task(
+        request.user, date_from, date_to, project=project, entries=_stats_entries(request)
+    )
     data["from"] = date_from.isoformat()
     data["to"] = date_to.isoformat()
     data["project_id"] = project.pk if project else None
+    return _json_no_store(data)
+
+
+def stats_by_user(request):
+    bounds = _stats_bounds(request)
+    if isinstance(bounds, JsonResponse):
+        return bounds
+    date_from, date_to = bounds
+    data = aggregation.by_user(scoping.visible_entries(request.user), date_from, date_to)
+    data["from"] = date_from.isoformat()
+    data["to"] = date_to.isoformat()
     return _json_no_store(data)
 
 

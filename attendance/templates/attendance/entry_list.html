@@ -5,8 +5,17 @@
 
 {% block content %}
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">勤怠記録</h1>
-    <a href="{% url 'entry_create' %}" class="btn btn-primary">手動追加</a>
+    <h1 class="h3 mb-0">勤怠記録{% if team_view %}（チーム）{% endif %}</h1>
+    <div class="d-flex gap-2">
+      {% if can_team %}
+        {% if team_view %}
+          <a href="{% url 'entry_list' %}" class="btn btn-outline-secondary">自分だけ</a>
+        {% else %}
+          <a href="?scope=team" class="btn btn-outline-primary">チーム全体</a>
+        {% endif %}
+      {% endif %}
+      <a href="{% url 'entry_create' %}" class="btn btn-primary">手動追加</a>
+    </div>
   </div>
 
   <form method="get" class="card mb-3">
@@ -36,6 +45,7 @@
     <table class="table table-sm align-middle">
       <thead>
         <tr>
+          {% if team_view %}<th>利用者</th>{% endif %}
           <th>日付</th><th>開始</th><th>終了</th><th class="text-end">実働</th>
           <th>プロジェクト / タスク</th><th>状態</th><th>入力</th><th>メモ</th><th></th>
         </tr>
@@ -43,6 +53,7 @@
       <tbody>
         {% for entry in entries %}
           <tr>
+            {% if team_view %}<td class="text-nowrap">{{ entry.user.get_username }}</td>{% endif %}
             <td class="text-nowrap">{{ entry.start_at|date:"Y-m-d" }}</td>
             <td class="text-nowrap">{{ entry.start_at|date:"H:i" }}</td>
             <td class="text-nowrap">
@@ -57,7 +68,7 @@
             <td>{{ entry.get_source_display }}</td>
             <td class="small text-body-secondary">{{ entry.note|truncatechars:24 }}</td>
             <td class="text-end text-nowrap">
-              {% if not entry.is_running %}
+              {% if not entry.is_running and entry.user_id == request.user.id %}
                 <a href="{% url 'entry_edit' entry.pk %}" class="btn btn-sm btn-outline-secondary">編集</a>
                 <form method="post" action="{% url 'entry_delete' entry.pk %}" class="d-inline"
                       onsubmit="return confirm('この記録を削除しますか？');">
@@ -68,7 +79,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="9" class="text-body-secondary">記録がありません。</td></tr>
+          <tr><td colspan="{% if team_view %}10{% else %}9{% endif %}" class="text-body-secondary">記録がありません。</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -83,7 +83,7 @@ def switch(user, task, *, now=None):
 # --- 手動追加・編集（docs/domain-logic.md §2） ---
 
 
-def create_manual_entry(user, task, start_at, end_at, note=""):
+def create_manual_entry(user, task, start_at, end_at, note="", *, break_seconds=0):
     """打刻し忘れ対応。source=MANUAL で作成。start_at/end_at とも必須、未来不可。"""
     if end_at is None or start_at is None:
         raise EntryValidationError("開始時刻と終了時刻の両方を入力してください。")
@@ -94,6 +94,7 @@ def create_manual_entry(user, task, start_at, end_at, note=""):
         task=task,
         start_at=start_at,
         end_at=end_at,
+        break_seconds=break_seconds or 0,
         note=note or "",
         source=TimeEntry.Source.MANUAL,
     )
@@ -102,7 +103,7 @@ def create_manual_entry(user, task, start_at, end_at, note=""):
     return entry
 
 
-def update_entry(entry, *, task=None, start_at=None, end_at=None, note=None):
+def update_entry(entry, *, task=None, start_at=None, end_at=None, note=None, break_seconds=None):
     """指定フィールドのみ差し替えて保存。source は維持。実行中に戻すことは不可。"""
     if task is not None:
         entry.task = task
@@ -112,6 +113,8 @@ def update_entry(entry, *, task=None, start_at=None, end_at=None, note=None):
         entry.end_at = end_at
     if note is not None:
         entry.note = note
+    if break_seconds is not None:
+        entry.break_seconds = break_seconds
     if entry.end_at is None:
         raise EntryValidationError("終了時刻は必須です（実行中には戻せません）。")
     if entry.start_at > timezone.now():

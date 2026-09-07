@@ -72,6 +72,13 @@ class _DateTimeLocalField(forms.DateTimeField):
 class TimeEntryForm(forms.ModelForm):
     start_at = _DateTimeLocalField(label="開始時刻")
     end_at = _DateTimeLocalField(label="終了時刻")
+    break_minutes = forms.IntegerField(
+        label="休憩（分）",
+        min_value=0,
+        required=False,
+        initial=0,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 0}),
+    )
 
     class Meta:
         model = TimeEntry
@@ -93,6 +100,11 @@ class TimeEntryForm(forms.ModelForm):
                 value = getattr(self.instance, name)
                 if value:
                     self.initial[name] = timezone.localtime(value).strftime("%Y-%m-%dT%H:%M")
+            self.initial["break_minutes"] = self.instance.break_seconds // 60
+
+    @property
+    def break_seconds(self):
+        return (self.cleaned_data.get("break_minutes") or 0) * 60
 
     @staticmethod
     def _aware(dt):

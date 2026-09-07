@@ -12,6 +12,7 @@ Chart.js が fetch する読み取り専用エンドポイント。DRF は使わ
   | `from` | `YYYY-MM-DD` | 今月1日 | 期間開始（含む） |
   | `to` | `YYYY-MM-DD` | 今日 | 期間終了（含む） |
   | `project` | int | なし | `by-task` のみ。プロジェクトで絞る |
+  | `scope` | `team` | なし | `daily` / `by-project` / `by-task` で、`can_see_team` のとき対象を「本人 + owner/member プロジェクト」に拡大（P7） |
 - 期間は内部で `[from 00:00 JST, to+1日 00:00 JST)` に変換して `start_at` で絞る。
 - 対象は **完了記録のみ**（`end_at IS NOT NULL`）。
 - 不正な日付 → `400 {"error": "invalid date"}`。`from > to` → `400`。

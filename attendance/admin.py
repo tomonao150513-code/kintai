@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import Project, Task, TimeEntry
+from .models import Project, ProjectMembership, Task, TimeEntry
+
+
+class ProjectMembershipInline(admin.TabularInline):
+    model = ProjectMembership
+    extra = 0
+    autocomplete_fields = ("user",)
 
 
 @admin.register(Project)
@@ -8,6 +14,7 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = ("name", "owner", "color", "is_archived", "created_at")
     list_filter = ("is_archived", "owner")
     search_fields = ("name", "description")
+    inlines = (ProjectMembershipInline,)
 
     def get_changeform_initial_data(self, request):
         return {"owner": request.user.pk}
@@ -23,7 +30,15 @@ class TaskAdmin(admin.ModelAdmin):
 
 @admin.register(TimeEntry)
 class TimeEntryAdmin(admin.ModelAdmin):
-    list_display = ("task", "user", "start_at", "end_at", "duration_display", "source")
+    list_display = (
+        "task",
+        "user",
+        "start_at",
+        "end_at",
+        "break_seconds",
+        "duration_display",
+        "source",
+    )
     list_filter = ("source", "user", "task__project")
     search_fields = ("note", "task__name")
     autocomplete_fields = ("task",)
@@ -38,3 +53,11 @@ class TimeEntryAdmin(admin.ModelAdmin):
         if obj.start_at is None:
             return "-"
         return str(obj.duration).split(".")[0]  # マイクロ秒を落とす
+
+
+@admin.register(ProjectMembership)
+class ProjectMembershipAdmin(admin.ModelAdmin):
+    list_display = ("project", "user", "role", "created_at")
+    list_filter = ("role", "project")
+    search_fields = ("project__name", "user__username")
+    autocomplete_fields = ("project", "user")

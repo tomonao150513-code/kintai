@@ -157,14 +157,31 @@ def clean(self):
 
 - 保存経路（services / forms / admin）はすべて `full_clean()` を通す。詳細は [coding-guidelines.md](coding-guidelines.md)。
 
-### 3.3 将来対応: 休憩控除（要件 §3.3）
+### 3.3 休憩控除（要件 §3.3、P7 で実装済み）
 
-今回は実装しないが、移行しやすいよう次を守る:
+**案1** を採用。`TimeEntry.break_seconds = PositiveIntegerField("休憩秒数", default=0)`。
 
-- 実働時間の算出は **`duration` プロパティと `services` に集約**し、テンプレート/ビューで直接引き算しない。
-- 後日の追加候補（どちらでも移行可）:
-  - 案1: `TimeEntry.break_seconds = PositiveIntegerField(default=0)` を足し、`duration = (end - start) - break_seconds` に変更。
-  - 案2: `Break(time_entry=FK, start_at, end_at)` テーブルを足し、`duration` から休憩合計を引く。
+- `gross_seconds` = `end_at - start_at`（休憩控除前、丸めなし）
+- `duration_seconds` = `max(0, gross_seconds - break_seconds)`（実働 = 実労働時間）
+- `clean()`: `end_at` があるとき `break_seconds <= gross_seconds` を検証（`break_seconds` エラー）
+- フォームは「休憩（分）」で入力（`TimeEntryForm.break_minutes` → `break_seconds`）。ダッシュボードの打刻タイマーは常に `break_seconds=0` で作成し、休憩は手動編集で入れる。
+- CSV/Excel に「休憩秒数」列を追加（[export-spec.md](export-spec.md)）。
+
+### 3.4 ProjectMembership（チーム対応、P7）
+
+| フィールド | Django 定義 | 説明 |
+| --- | --- | --- |
+| `project` | `ForeignKey(Project, on_delete=CASCADE, related_name="memberships")` | |
+| `user` | `ForeignKey(AUTH_USER_MODEL, on_delete=CASCADE, related_name="project_memberships")` | |
+| `role` | `CharField(choices=Role)` = `member` / `manager` | 当面は閲覧可否のみに使用 |
+
+制約: `(project, user)` ユニーク（`uniq_project_membership`）。`attendance` アプリに置く（`accounts` からの
+import 依存を避けるため。task-breakdown P7 の「accounts に」からの変更）。
+
+**可視範囲**（`attendance/services/scoping.py`）:
+- 管理者（`is_staff` / `is_superuser`）: 全件（`visible_projects` / `visible_entries` が `.all()`）。
+- 一般: 自分の記録 + 自分が owner または member のプロジェクトの記録。
+- レポート・勤怠一覧のみ `?scope=team` でこのスコープに切替（ダッシュボード・CRUD は従来どおり本人のみ）。
 
 ## 4. ER 図
 

@@ -4,15 +4,25 @@
 {% block title %}レポート | タスク別勤怠{% endblock %}
 
 {% block content %}
-  <h1 class="h3 mb-3">集計レポート</h1>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">集計レポート</h1>
+    {% if can_team %}
+      {% if team_view %}
+        <a href="?" class="btn btn-sm btn-outline-secondary">自分だけ表示にする</a>
+      {% else %}
+        <a href="?scope=team" class="btn btn-sm btn-outline-primary">チーム全体を表示</a>
+      {% endif %}
+    {% endif %}
+  </div>
 
   <form method="get" class="card mb-4">
     <div class="card-body">
+      {% if team_view %}<input type="hidden" name="scope" value="team">{% endif %}
       <div class="btn-group btn-group-sm mb-3" role="group">
-        <a href="?preset=today" class="btn btn-outline-secondary">今日</a>
-        <a href="?preset=week" class="btn btn-outline-secondary">今週</a>
-        <a href="?preset=month" class="btn btn-outline-secondary">今月</a>
-        <a href="?preset=last_month" class="btn btn-outline-secondary">先月</a>
+        <a href="?{% if team_view %}scope=team&{% endif %}preset=today" class="btn btn-outline-secondary">今日</a>
+        <a href="?{% if team_view %}scope=team&{% endif %}preset=week" class="btn btn-outline-secondary">今週</a>
+        <a href="?{% if team_view %}scope=team&{% endif %}preset=month" class="btn btn-outline-secondary">今月</a>
+        <a href="?{% if team_view %}scope=team&{% endif %}preset=last_month" class="btn btn-outline-secondary">先月</a>
       </div>
       <div class="row g-2 align-items-end">
         <div class="col-auto">
@@ -28,6 +38,9 @@
           <select name="axis" class="form-select form-select-sm">
             <option value="project" {% if axis == 'project' %}selected{% endif %}>プロジェクト別</option>
             <option value="task" {% if axis == 'task' %}selected{% endif %}>タスク別</option>
+            {% if team_view %}
+              <option value="user" {% if axis == 'user' %}selected{% endif %}>メンバー別</option>
+            {% endif %}
           </select>
         </div>
         <div class="col-auto">
@@ -77,7 +90,9 @@
     </div>
     <div class="col-lg-5">
       <div class="card h-100"><div class="card-body">
-        <h2 class="h6">{% if axis == 'task' %}タスク別{% else %}プロジェクト別{% endif %}構成比</h2>
+        <h2 class="h6">
+          {% if axis == 'user' %}メンバー別{% elif axis == 'task' %}タスク別{% else %}プロジェクト別{% endif %}構成比
+        </h2>
         <canvas id="composition-chart" height="220"></canvas>
       </div></div>
     </div>
@@ -86,14 +101,17 @@
   <div class="table-responsive mt-4">
     <table class="table">
       <thead>
-        <tr><th>{% if axis == 'task' %}タスク{% else %}プロジェクト{% endif %}</th>
+        <tr><th>{% if axis == 'user' %}メンバー{% elif axis == 'task' %}タスク{% else %}プロジェクト{% endif %}</th>
           <th class="text-end">実働</th><th class="text-end">割合</th></tr>
       </thead>
       <tbody>
         {% for item in breakdown.items %}
           <tr>
             <td>
-              <span class="d-inline-block rounded me-1" style="width:.8rem;height:.8rem;background:{{ item.color }}"></span>
+              {% if item.color %}
+                <span class="d-inline-block rounded me-1"
+                      style="width:.8rem;height:.8rem;background:{{ item.color }}"></span>
+              {% endif %}
               {% if axis == 'task' %}{{ item.project_name }} / {{ item.name }}{% else %}{{ item.name }}{% endif %}
             </td>
             <td class="text-end">{{ item.seconds|hms }}</td>
