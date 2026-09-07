@@ -34,18 +34,18 @@
 - [x] `attendance/tests/`（パッケージ化）+ `test_models_constraints.py`: 実行中タイマー 1 件制約 / `end_at>start_at` チェック制約 / 重複・境界の `clean()` / ユニーク制約 / `is_selectable` / `duration_seconds` 丸めなし（12 tests, all green）
 - **完了条件**: 管理画面で 3 モデルの CRUD ができ、制約テストが green → ✅ 確認済み（admin で Project→Task→TimeEntry を作成、changelist に実働時間 `1:30:24` 表示、重複エントリは admin でも `clean()` で拒否）
 
-## P2 打刻 + ダッシュボード
+## P2 打刻 + ダッシュボード ✅ 完了（2026-09-07、ブランチ `feature/p2-timer`）
 
-- [ ] `attendance/exceptions.py`
-- [ ] `attendance/services/timer.py`: `get_running` / `start` / `stop` / `switch`（[domain-logic.md](domain-logic.md) §1）
-- [ ] `attendance/services/formatting.py`: `format_hms` / `format_hms_colon` / `format_hours_decimal` / `greeting_message`（§3）
-- [ ] `attendance/templatetags/kintai_extras.py`: `hms` / `hms_colon` フィルタ
-- [ ] `attendance/services/aggregation.py`: `period_bounds` / `daily_totals`（まず today・week だけ使う）
-- [ ] ビュー: `dashboard` / `timer_start` / `timer_stop` / `timer_switch`（POST、messages、リダイレクト）
-- [ ] テンプレート: `dashboard.html` / `_running_timer.html`（開始フォーム = optgroup、実行中枠、今日/今週合計）
-- [ ] JS: 経過秒カウントアップ、切り替え確認ダイアログ
-- [ ] `test_timer.py` / `test_formatting.py`
-- **完了条件**: タスクを選んで開始 → 終了で実働時間が記録され、「お疲れ様でした！ 1時間30分24秒 作業しました！」が出る
+- [x] `attendance/exceptions.py`（`TimerError` 系 + `EntryValidationError`）
+- [x] `attendance/services/timer.py`: `get_running` / `start` / `stop` / `switch`（[domain-logic.md](domain-logic.md) §1、atomic + `select_for_update`、`IntegrityError` → `TimerAlreadyRunning`）
+- [x] `attendance/services/formatting.py`: `format_hms` / `format_hms_colon` / `format_hours_decimal` / `greeting_message`（§3）
+- [x] `attendance/templatetags/kintai_extras.py`: `hms` / `hms_colon` フィルタ
+- [x] `attendance/services/aggregation.py`: `period_bounds`（today/week/month）/ `total_seconds` / `daily_totals`（P2 は today・week のみ使用。by_project/by_task は P4）
+- [x] ビュー: `dashboard` / `timer_start` / `timer_stop` / `timer_switch`（`require_POST`、messages、`redirect("dashboard")`、他人のタスクは 404）
+- [x] テンプレート: `dashboard.html` / `_running_timer.html`（開始フォーム = optgroup、実行中枠、今日/今週合計。RUNNING 時は開始ボタンが「切り替え」に）
+- [x] JS: 経過秒カウントアップ（`data-elapsed` 起点）、切り替え確認ダイアログ（`confirm()` → OK で action を switch URL に）
+- [x] `test_timer.py`（8）/ `test_formatting.py`（parametrize 含む）→ 全 36 tests green
+- **完了条件**: タスクを選んで開始 → 終了で実働時間が記録され、「お疲れ様でした！ ◯時間◯分◯秒 作業しました！」が出る → ✅ 確認済み（start/stop/switch を runserver で実操作。start-while-running / stop-while-idle のエラー、POST-only の 405、switch で旧タイマー終了メッセージ + 新タイマー開始も確認）
 
 ## P3 一覧・手修正・手動追加・期間フィルタ
 
