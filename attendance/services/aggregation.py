@@ -32,9 +32,16 @@ def period_bounds(kind, ref=None):
     raise ValueError(f"unknown period kind: {kind!r}")
 
 
+def datetime_range(date_from, date_to):
+    """[date_from 00:00 JST, date_to+1 00:00 JST) の半開区間（aware datetime のタプル）。"""
+    return (
+        datetime.combine(date_from, time.min, tzinfo=JST),
+        datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=JST),
+    )
+
+
 def _completed_in_range(user, date_from, date_to):
-    start_dt = datetime.combine(date_from, time.min, tzinfo=JST)
-    end_dt = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=JST)
+    start_dt, end_dt = datetime_range(date_from, date_to)
     return TimeEntry.objects.filter(
         user=user,
         end_at__isnull=False,

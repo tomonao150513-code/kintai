@@ -23,7 +23,13 @@
           <li class="nav-item">
             <a class="nav-link" href="{% url 'dashboard' %}">ダッシュボード</a>
           </li>
-          {# プロジェクト / 勤怠記録 / レポート / エクスポートは P3・P4・P5 で追加 #}
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'project_list' %}">プロジェクト</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'entry_list' %}">勤怠記録</a>
+          </li>
+          {# レポート / エクスポートは P4・P5 で追加 #}
         </ul>
         {% if user.is_authenticated %}
           <div class="d-flex align-items-center gap-2">

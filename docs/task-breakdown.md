@@ -47,15 +47,17 @@
 - [x] `test_timer.py`（8）/ `test_formatting.py`（parametrize 含む）→ 全 36 tests green
 - **完了条件**: タスクを選んで開始 → 終了で実働時間が記録され、「お疲れ様でした！ ◯時間◯分◯秒 作業しました！」が出る → ✅ 確認済み（start/stop/switch を runserver で実操作。start-while-running / stop-while-idle のエラー、POST-only の 405、switch で旧タイマー終了メッセージ + 新タイマー開始も確認）
 
-## P3 一覧・手修正・手動追加・期間フィルタ
+## P3 一覧・手修正・手動追加・期間フィルタ ✅ 完了（2026-09-07、ブランチ `feature/p3-entries`）
 
-- [ ] `attendance/forms.py`: `ProjectForm` / `TaskForm` / `TimeEntryForm` / `EntryFilterForm`
-- [ ] `services/timer.py`: `create_manual_entry` / `update_entry` / `delete_entry`
-- [ ] ビュー + テンプレート: プロジェクト（list/create/edit/archive）、タスク（list/create/edit/archive）、勤怠記録（list/create/edit/delete）
-- [ ] `entry_list`: 期間フィルタ（既定=今月）、合計、ページネーション、実行中は編集/削除不可
-- [ ] 他ユーザーデータへのアクセスは 404
-- [ ] `test_aggregation.py`（期間境界・日跨ぎ）
-- **完了条件**: 一覧で絞り込み・合計表示・行編集・削除・手動追加ができる
+- [x] `attendance/forms.py`: `ProjectForm` / `TaskForm` / `TimeEntryForm`（datetime-local、JST 変換、prefill）/ `EntryFilterForm`。`(owner,name)` `(project,name)` 重複はフォームエラー
+- [x] `services/timer.py`: `create_manual_entry`（source=MANUAL、未来不可、両端必須）/ `update_entry`（source 維持、実行中に戻せない）/ `delete_entry`
+- [x] `aggregation.datetime_range` を追加（entry_list と共用）
+- [x] ビュー + テンプレート: プロジェクト（list/create/edit/archive、状態フィルタ、タスク数/記録数）、タスク（list/create/edit/archive、状態フィルタ、アーカイブ表示切替）、勤怠記録（list/create/edit/delete）
+- [x] `entry_list`: 期間フィルタ（既定=今月、`period_bounds`）、合計時間、件数、ページネーション（50件）、実行中は「計測中」表示で編集/削除不可
+- [x] 他ユーザーデータへのアクセスは 404（`get_object_or_404(..., owner/user=request.user)`）
+- [x] `base.html` ナビに「プロジェクト」「勤怠記録」追加
+- [x] tests: `test_aggregation.py`（period_bounds today/week/month、ゼロ埋め、日跨ぎ=開始日計上、範囲両端）/ `test_manual_entry.py` / `test_views_scoping.py`（login必須・404・日付フィルタ・実行中編集不可）→ **全 57 tests green**
+- **完了条件**: 一覧で絞り込み・合計表示・行編集・削除・手動追加ができる → ✅ 確認済み（runserver で project/task 作成・重複エラー、manual entry 追加（`2時間15分30秒`）・編集（`3時間0分0秒`、prefill）・削除、未来日時エラー）
 
 ## P4 集計レポート + グラフ
 

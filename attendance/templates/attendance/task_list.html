@@ -1,0 +1,67 @@
+{% extends "attendance/base.html" %}
+
+{% block title %}{{ project.name }} のタスク | タスク別勤怠{% endblock %}
+
+{% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'project_list' %}">プロジェクト</a></li>
+      <li class="breadcrumb-item active">{{ project.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">タスク</h1>
+    <a href="{% url 'task_create' project.pk %}" class="btn btn-primary">新規作成</a>
+  </div>
+
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label small mb-0">状態</label>
+      <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+        <option value="all" {% if status == 'all' %}selected{% endif %}>すべて</option>
+        <option value="todo" {% if status == 'todo' %}selected{% endif %}>未着手</option>
+        <option value="doing" {% if status == 'doing' %}selected{% endif %}>進行中</option>
+        <option value="done" {% if status == 'done' %}selected{% endif %}>完了</option>
+      </select>
+    </div>
+    <div class="col-auto form-check mb-1">
+      <input class="form-check-input" type="checkbox" name="archived" value="1"
+             id="arch" {% if include_archived %}checked{% endif %} onchange="this.form.submit()">
+      <label class="form-check-label" for="arch">アーカイブも表示</label>
+    </div>
+  </form>
+
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>状態</th><th>名称</th><th></th></tr></thead>
+      <tbody>
+        {% for task in tasks %}
+          <tr class="{% if task.is_archived %}text-body-secondary{% endif %}">
+            <td>
+              {% if task.status == 'done' %}<span class="badge text-bg-success">完了</span>
+              {% elif task.status == 'doing' %}<span class="badge text-bg-primary">進行中</span>
+              {% else %}<span class="badge text-bg-secondary">未着手</span>{% endif %}
+            </td>
+            <td>
+              {{ task.name }}
+              {% if task.is_archived %}<span class="badge text-bg-secondary">アーカイブ</span>{% endif %}
+              {% if task.description %}<div class="small text-body-secondary">{{ task.description }}</div>{% endif %}
+            </td>
+            <td class="text-end text-nowrap">
+              <a href="{% url 'task_edit' task.pk %}" class="btn btn-sm btn-outline-secondary">編集</a>
+              <form method="post" action="{% url 'task_archive' task.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-warning">
+                  {% if task.is_archived %}解除{% else %}アーカイブ{% endif %}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="text-body-secondary">タスクがありません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

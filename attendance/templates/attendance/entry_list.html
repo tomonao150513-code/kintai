@@ -1,0 +1,96 @@
+{% extends "attendance/base.html" %}
+{% load kintai_extras %}
+
+{% block title %}勤怠記録 | タスク別勤怠{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">勤怠記録</h1>
+    <a href="{% url 'entry_create' %}" class="btn btn-primary">手動追加</a>
+  </div>
+
+  <form method="get" class="card mb-3">
+    <div class="card-body row g-2 align-items-end">
+      {% for field in form %}
+        <div class="col-sm-4 col-lg-2">
+          <label for="{{ field.id_for_label }}" class="form-label small mb-0">{{ field.label }}</label>
+          {{ field }}
+        </div>
+      {% endfor %}
+      <div class="col-auto">
+        <button class="btn btn-outline-primary">絞り込み</button>
+        <a href="{% url 'entry_list' %}" class="btn btn-link">クリア</a>
+      </div>
+      {% if form.non_field_errors %}
+        <div class="col-12"><div class="text-danger small">{{ form.non_field_errors|striptags }}</div></div>
+      {% endif %}
+    </div>
+  </form>
+
+  <p class="text-body-secondary">
+    {{ date_from|date:"Y-m-d" }} 〜 {{ date_to|date:"Y-m-d" }} ／
+    合計 <strong>{{ total_seconds|hms }}</strong>（{{ result_count }} 件{% if running_count %}、うち計測中 {{ running_count }} 件{% endif %}）
+  </p>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>日付</th><th>開始</th><th>終了</th><th class="text-end">実働</th>
+          <th>プロジェクト / タスク</th><th>状態</th><th>入力</th><th>メモ</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries %}
+          <tr>
+            <td class="text-nowrap">{{ entry.start_at|date:"Y-m-d" }}</td>
+            <td class="text-nowrap">{{ entry.start_at|date:"H:i" }}</td>
+            <td class="text-nowrap">
+              {% if entry.is_running %}<span class="badge text-bg-success">計測中</span>
+              {% else %}{{ entry.end_at|date:"H:i" }}{% endif %}
+            </td>
+            <td class="text-end text-nowrap">
+              {% if entry.is_running %}—{% else %}{{ entry.duration_seconds|hms }}{% endif %}
+            </td>
+            <td>{{ entry.task.project.name }} / {{ entry.task.name }}</td>
+            <td>{{ entry.task.get_status_display }}</td>
+            <td>{{ entry.get_source_display }}</td>
+            <td class="small text-body-secondary">{{ entry.note|truncatechars:24 }}</td>
+            <td class="text-end text-nowrap">
+              {% if not entry.is_running %}
+                <a href="{% url 'entry_edit' entry.pk %}" class="btn btn-sm btn-outline-secondary">編集</a>
+                <form method="post" action="{% url 'entry_delete' entry.pk %}" class="d-inline"
+                      onsubmit="return confirm('この記録を削除しますか？');">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-outline-danger">削除</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="9" class="text-body-secondary">記録がありません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.has_other_pages %}
+    <nav>
+      <ul class="pagination pagination-sm">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}">前へ</a>
+          </li>
+        {% endif %}
+        <li class="page-item disabled">
+          <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}">次へ</a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "attendance/base.html" %}
+
+{% block title %}{% if is_create %}勤怠記録の追加{% else %}勤怠記録の編集{% endif %} | タスク別勤怠{% endblock %}
+
+{% block content %}
+  <h1 class="h3 mb-3">{% if is_create %}勤怠記録の追加{% else %}勤怠記録の編集{% endif %}</h1>
+
+  <form method="post" class="card">
+    <div class="card-body" style="max-width: 640px;">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+      {% for field in form %}
+        <div class="mb-3">
+          <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">保存</button>
+      <a href="{% url 'entry_list' %}" class="btn btn-link">キャンセル</a>
+    </div>
+  </form>
+{% endblock %}

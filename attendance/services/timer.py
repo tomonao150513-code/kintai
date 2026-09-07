@@ -78,3 +78,49 @@ def switch(user, task, *, now=None):
         stopped = stop(user, now=moment)
     started = start(user, task, now=moment)
     return stopped, started
+
+
+# --- 手動追加・編集（docs/domain-logic.md §2） ---
+
+
+def create_manual_entry(user, task, start_at, end_at, note=""):
+    """打刻し忘れ対応。source=MANUAL で作成。start_at/end_at とも必須、未来不可。"""
+    if end_at is None or start_at is None:
+        raise EntryValidationError("開始時刻と終了時刻の両方を入力してください。")
+    if start_at > timezone.now():
+        raise EntryValidationError("開始時刻に未来の日時は指定できません。")
+    entry = TimeEntry(
+        user=user,
+        task=task,
+        start_at=start_at,
+        end_at=end_at,
+        note=note or "",
+        source=TimeEntry.Source.MANUAL,
+    )
+    _full_clean(entry)
+    entry.save()
+    return entry
+
+
+def update_entry(entry, *, task=None, start_at=None, end_at=None, note=None):
+    """指定フィールドのみ差し替えて保存。source は維持。実行中に戻すことは不可。"""
+    if task is not None:
+        entry.task = task
+    if start_at is not None:
+        entry.start_at = start_at
+    if end_at is not None:
+        entry.end_at = end_at
+    if note is not None:
+        entry.note = note
+    if entry.end_at is None:
+        raise EntryValidationError("終了時刻は必須です（実行中には戻せません）。")
+    if entry.start_at > timezone.now():
+        raise EntryValidationError("開始時刻に未来の日時は指定できません。")
+    _full_clean(entry)
+    entry.save()
+    return entry
+
+
+def delete_entry(entry):
+    """物理削除（関連は無い）。"""
+    entry.delete()
