@@ -101,3 +101,37 @@ def test_total_seconds_range_is_inclusive_of_both_ends(user, task):
     assert aggregation.total_seconds(user, date(2026, 9, 1), date(2026, 9, 30)) == 3600 + 1800
     # 範囲外
     assert aggregation.total_seconds(user, date(2026, 9, 2), date(2026, 9, 29)) == 0
+
+
+def test_by_project_orders_desc_and_computes_ratio(user):
+    p1 = Project.objects.create(owner=user, name="A", color="#111111")
+    p2 = Project.objects.create(owner=user, name="B", color="#222222")
+    t1 = Task.objects.create(project=p1, name="t1")
+    t2 = Task.objects.create(project=p2, name="t2")
+    _entry(user, t1, datetime(2026, 9, 7, 9, 0, tzinfo=JST), 180)  # 10800s
+    _entry(user, t2, datetime(2026, 9, 7, 13, 0, tzinfo=JST), 60)  # 3600s
+    result = aggregation.by_project(user, date(2026, 9, 7), date(2026, 9, 7))
+    assert result["total_seconds"] == 14400
+    assert [i["name"] for i in result["items"]] == ["A", "B"]
+    assert result["items"][0]["seconds"] == 10800
+    assert result["items"][0]["ratio"] == round(10800 / 14400, 4)
+    assert result["items"][0]["color"] == "#111111"
+
+
+def test_by_project_empty_when_no_data(user, task):
+    result = aggregation.by_project(user, date(2020, 1, 1), date(2020, 1, 2))
+    assert result == {"total_seconds": 0, "items": []}
+
+
+def test_by_task_filters_by_project(user):
+    p1 = Project.objects.create(owner=user, name="A")
+    p2 = Project.objects.create(owner=user, name="B")
+    t1 = Task.objects.create(project=p1, name="t1")
+    t2 = Task.objects.create(project=p2, name="t2")
+    _entry(user, t1, datetime(2026, 9, 7, 9, 0, tzinfo=JST), 60)
+    _entry(user, t2, datetime(2026, 9, 7, 12, 0, tzinfo=JST), 30)
+    all_tasks = aggregation.by_task(user, date(2026, 9, 7), date(2026, 9, 7))
+    assert {i["name"] for i in all_tasks["items"]} == {"t1", "t2"}
+    only_p1 = aggregation.by_task(user, date(2026, 9, 7), date(2026, 9, 7), project=p1)
+    assert [i["name"] for i in only_p1["items"]] == ["t1"]
+    assert only_p1["items"][0]["project_name"] == "A"

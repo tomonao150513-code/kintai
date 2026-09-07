@@ -1,7 +1,11 @@
+from datetime import date, timedelta
+
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from attendance.exceptions import TimerError
@@ -35,6 +39,8 @@ def dashboard(request):
         "running_elapsed_seconds": running.duration_seconds if running else 0,
         "today_seconds": aggregation.total_seconds(request.user, *today),
         "week_seconds": aggregation.total_seconds(request.user, *week),
+        "week_from": week[0].isoformat(),
+        "week_to": week[1].isoformat(),
         "task_groups": task_groups,
     }
     return render(request, "attendance/dashboard.html", context)
@@ -309,3 +315,128 @@ def entry_delete(request, pk):
         timer_service.delete_entry(entry)
         messages.success(request, "勤怠記録を削除しました。")
     return redirect("entry_list")
+
+
+# --- 集計レポート / グラフ API（S-09 / P4） ------------------------------------------
+
+
+def _resolve_period(request):
+    """レポート画面用: preset / from / to から (date_from, date_to) を決める。"""
+    today = timezone.localdate()
+    preset = request.GET.get("preset")
+    if preset in ("today", "week", "month"):
+        return aggregation.period_bounds(preset, today)
+    if preset == "last_month":
+        return aggregation.period_bounds("month", today.replace(day=1) - timedelta(days=1))
+    try:
+        raw_from = request.GET.get("from")
+        raw_to = request.GET.get("to")
+        date_from = date.fromisoformat(raw_from) if raw_from else today.replace(day=1)
+        date_to = date.fromisoformat(raw_to) if raw_to else today
+    except ValueError:
+        return today.replace(day=1), today
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+    return date_from, date_to
+
+
+def report(request):
+    date_from, date_to = _resolve_period(request)
+    axis = request.GET.get("axis", "project")
+    if axis not in ("project", "task"):
+        axis = "project"
+
+    raw_project = request.GET.get("project", "")
+    project = None
+    if raw_project.isdigit():
+        project = Project.objects.filter(pk=int(raw_project), owner=request.user).first()
+
+    daily = aggregation.daily_totals(request.user, date_from, date_to)
+    total = sum(d["seconds"] for d in daily)
+    worked_days = sum(1 for d in daily if d["seconds"] > 0)
+
+    if axis == "task":
+        breakdown = aggregation.by_task(request.user, date_from, date_to, project=project)
+    else:
+        breakdown = aggregation.by_project(request.user, date_from, date_to)
+
+    context = {
+        "date_from": date_from,
+        "date_to": date_to,
+        "axis": axis,
+        "project": project,
+        "projects": Project.objects.filter(owner=request.user).order_by("name"),
+        "total_seconds": total,
+        "worked_days": worked_days,
+        "avg_seconds": round(total / worked_days) if worked_days else 0,
+        "breakdown": breakdown,
+    }
+    return render(request, "attendance/report.html", context)
+
+
+def _stats_bounds(request):
+    """stats API 用: from/to をパース。不正なら JsonResponse(400) を返す。"""
+    today = timezone.localdate()
+    raw_from = request.GET.get("from")
+    raw_to = request.GET.get("to")
+    try:
+        date_from = date.fromisoformat(raw_from) if raw_from else today.replace(day=1)
+        date_to = date.fromisoformat(raw_to) if raw_to else today
+    except ValueError:
+        return JsonResponse({"error": "invalid date"}, status=400)
+    if date_from > date_to:
+        return JsonResponse({"error": "invalid date"}, status=400)
+    return date_from, date_to
+
+
+def _json_no_store(payload):
+    resp = JsonResponse(payload)
+    resp["Cache-Control"] = "no-store"
+    return resp
+
+
+def stats_daily(request):
+    bounds = _stats_bounds(request)
+    if isinstance(bounds, JsonResponse):
+        return bounds
+    date_from, date_to = bounds
+    series = [
+        {"date": row["date"].isoformat(), "seconds": row["seconds"]}
+        for row in aggregation.daily_totals(request.user, date_from, date_to)
+    ]
+    return _json_no_store(
+        {
+            "unit": "day",
+            "from": date_from.isoformat(),
+            "to": date_to.isoformat(),
+            "total_seconds": sum(s["seconds"] for s in series),
+            "series": series,
+        }
+    )
+
+
+def stats_by_project(request):
+    bounds = _stats_bounds(request)
+    if isinstance(bounds, JsonResponse):
+        return bounds
+    date_from, date_to = bounds
+    data = aggregation.by_project(request.user, date_from, date_to)
+    data["from"] = date_from.isoformat()
+    data["to"] = date_to.isoformat()
+    return _json_no_store(data)
+
+
+def stats_by_task(request):
+    bounds = _stats_bounds(request)
+    if isinstance(bounds, JsonResponse):
+        return bounds
+    date_from, date_to = bounds
+    raw_project = request.GET.get("project", "")
+    project = None
+    if raw_project.isdigit():
+        project = Project.objects.filter(pk=int(raw_project), owner=request.user).first()
+    data = aggregation.by_task(request.user, date_from, date_to, project=project)
+    data["from"] = date_from.isoformat()
+    data["to"] = date_to.isoformat()
+    data["project_id"] = project.pk if project else None
+    return _json_no_store(data)

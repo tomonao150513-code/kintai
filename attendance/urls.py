@@ -22,4 +22,9 @@ urlpatterns = [
     path("entries/new/", views.entry_create, name="entry_create"),
     path("entries/<int:pk>/edit/", views.entry_edit, name="entry_edit"),
     path("entries/<int:pk>/delete/", views.entry_delete, name="entry_delete"),
+    # レポート / グラフ API
+    path("report/", views.report, name="report"),
+    path("api/stats/daily/", views.stats_daily, name="stats_daily"),
+    path("api/stats/by-project/", views.stats_by_project, name="stats_by_project"),
+    path("api/stats/by-task/", views.stats_by_task, name="stats_by_task"),
 ]

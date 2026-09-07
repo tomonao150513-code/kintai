@@ -59,15 +59,16 @@
 - [x] tests: `test_aggregation.py`（period_bounds today/week/month、ゼロ埋め、日跨ぎ=開始日計上、範囲両端）/ `test_manual_entry.py` / `test_views_scoping.py`（login必須・404・日付フィルタ・実行中編集不可）→ **全 57 tests green**
 - **完了条件**: 一覧で絞り込み・合計表示・行編集・削除・手動追加ができる → ✅ 確認済み（runserver で project/task 作成・重複エラー、manual entry 追加（`2時間15分30秒`）・編集（`3時間0分0秒`、prefill）・削除、未来日時エラー）
 
-## P4 集計レポート + グラフ
+## P4 集計レポート + グラフ ✅ 完了（2026-09-07、ブランチ `feature/p4-report`）
 
-- [ ] `services/aggregation.py`: `by_project` / `by_task` 仕上げ、`daily_totals` ゼロ埋め
-- [ ] ビュー: `report`、`stats_daily` / `stats_by_project` / `stats_by_task`（[api-charts.md](api-charts.md)）
-- [ ] テンプレート: `report.html`（期間プリセット、日別バー、構成比円グラフ + 内訳テーブル）
-- [ ] JS: fetch → Chart.js（棒・円）。色は API の `color`
-- [ ] ダッシュボードの週次バーを `stats_daily` に接続
-- [ ] `test_aggregation.py` 拡充（ratio、降順）
-- **完了条件**: 期間指定でプロジェクト別・日別が数値とグラフで見える
+- [x] `services/aggregation.py`: `by_project` / `by_task`（`_breakdown` で seconds 降順・ratio 4桁、total=0 で items=[]）。`daily_totals` ゼロ埋めは P2 実装済み
+- [x] ビュー: `report`（preset today/week/month/last_month + from/to + axis project/task + project 絞り込み、サマリ=合計/稼働日数/1日平均）、`stats_daily` / `stats_by_project` / `stats_by_task`（[api-charts.md](api-charts.md) 準拠、`Cache-Control: no-store`、不正日付→400、本人分のみ）
+- [x] テンプレート: `report.html`（期間プリセット、日別バー、構成比ドーナツ + 内訳テーブル（サーバーレンダリング、合計行））
+- [x] JS: `stats_daily` を fetch して Chart.js 棒グラフ、`json_script` で埋めた内訳を Chart.js ドーナツ。色は API の `color`
+- [x] ダッシュボードの週次バーを `stats_daily`（今週の月〜日）に接続
+- [x] `base.html` ナビに「レポート」追加
+- [x] tests: `test_aggregation.py` 拡充（by_project 降順/ratio/色、空、by_task の project 絞り込み）/ `test_stats_api.py`（login必須、zero-fill、no-store、400、本人スコープ）→ **全 65 tests green**
+- **完了条件**: 期間指定でプロジェクト別・日別が数値とグラフで見える → ✅ 確認済み（runserver で report ページ、`/api/stats/daily/`（zero-fill・no-store）、`/api/stats/by-project/`、不正日付 400、ダッシュボード週次バー）
 
 ## P5 CSV / Excel エクスポート
 

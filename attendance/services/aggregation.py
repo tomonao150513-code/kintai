@@ -67,3 +67,56 @@ def daily_totals(user, date_from, date_to):
         out.append({"date": cur, "seconds": buckets.get(cur, 0)})
         cur += timedelta(days=1)
     return out
+
+
+def _breakdown(rows):
+    """rows（seconds を持つ dict のリスト）を seconds 降順にし ratio を付けて返す。"""
+    total = sum(r["seconds"] for r in rows)
+    if not total:
+        return {"total_seconds": 0, "items": []}
+    items = sorted(rows, key=lambda r: r["seconds"], reverse=True)
+    for r in items:
+        r["ratio"] = round(r["seconds"] / total, 4)
+    return {"total_seconds": total, "items": items}
+
+
+def by_project(user, date_from, date_to):
+    """プロジェクト別内訳（docs/api-charts.md）。"""
+    buckets: dict = {}
+    qs = _completed_in_range(user, date_from, date_to).select_related("task__project")
+    for entry in qs:
+        project = entry.task.project
+        row = buckets.setdefault(
+            project.id,
+            {
+                "project_id": project.id,
+                "name": project.name,
+                "color": project.color,
+                "seconds": 0,
+            },
+        )
+        row["seconds"] += entry.duration_seconds
+    return _breakdown(list(buckets.values()))
+
+
+def by_task(user, date_from, date_to, project=None):
+    """タスク別内訳。project 指定で当該プロジェクト内に限定。"""
+    qs = _completed_in_range(user, date_from, date_to).select_related("task__project")
+    if project is not None:
+        qs = qs.filter(task__project=project)
+    buckets: dict = {}
+    for entry in qs:
+        task = entry.task
+        row = buckets.setdefault(
+            task.id,
+            {
+                "task_id": task.id,
+                "name": task.name,
+                "project_id": task.project_id,
+                "project_name": task.project.name,
+                "color": task.project.color,
+                "seconds": 0,
+            },
+        )
+        row["seconds"] += entry.duration_seconds
+    return _breakdown(list(buckets.values()))

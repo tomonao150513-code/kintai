@@ -1,0 +1,184 @@
+{% extends "attendance/base.html" %}
+{% load kintai_extras %}
+
+{% block title %}レポート | タスク別勤怠{% endblock %}
+
+{% block content %}
+  <h1 class="h3 mb-3">集計レポート</h1>
+
+  <form method="get" class="card mb-4">
+    <div class="card-body">
+      <div class="btn-group btn-group-sm mb-3" role="group">
+        <a href="?preset=today" class="btn btn-outline-secondary">今日</a>
+        <a href="?preset=week" class="btn btn-outline-secondary">今週</a>
+        <a href="?preset=month" class="btn btn-outline-secondary">今月</a>
+        <a href="?preset=last_month" class="btn btn-outline-secondary">先月</a>
+      </div>
+      <div class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label small mb-0">開始日</label>
+          <input type="date" name="from" value="{{ date_from|date:'Y-m-d' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-auto">
+          <label class="form-label small mb-0">終了日</label>
+          <input type="date" name="to" value="{{ date_to|date:'Y-m-d' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-auto">
+          <label class="form-label small mb-0">軸</label>
+          <select name="axis" class="form-select form-select-sm">
+            <option value="project" {% if axis == 'project' %}selected{% endif %}>プロジェクト別</option>
+            <option value="task" {% if axis == 'task' %}selected{% endif %}>タスク別</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label small mb-0">プロジェクト（タスク別のとき）</label>
+          <select name="project" class="form-select form-select-sm">
+            <option value="">すべて</option>
+            {% for p in projects %}
+              <option value="{{ p.pk }}" {% if project and project.pk == p.pk %}selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary btn-sm">表示</button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="row g-3 mb-4">
+    <div class="col-sm-4">
+      <div class="card"><div class="card-body">
+        <div class="text-body-secondary small">期間合計</div>
+        <div class="fs-4 fw-bold">{{ total_seconds|hms }}</div>
+      </div></div>
+    </div>
+    <div class="col-sm-4">
+      <div class="card"><div class="card-body">
+        <div class="text-body-secondary small">稼働日数</div>
+        <div class="fs-4 fw-bold">{{ worked_days }} 日</div>
+      </div></div>
+    </div>
+    <div class="col-sm-4">
+      <div class="card"><div class="card-body">
+        <div class="text-body-secondary small">1日平均</div>
+        <div class="fs-4 fw-bold">{{ avg_seconds|hms }}</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card h-100"><div class="card-body">
+        <h2 class="h6">日別稼働時間</h2>
+        <canvas id="daily-chart" height="220"
+                data-url="{% url 'stats_daily' %}?from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}"></canvas>
+      </div></div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card h-100"><div class="card-body">
+        <h2 class="h6">{% if axis == 'task' %}タスク別{% else %}プロジェクト別{% endif %}構成比</h2>
+        <canvas id="composition-chart" height="220"></canvas>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="table-responsive mt-4">
+    <table class="table">
+      <thead>
+        <tr><th>{% if axis == 'task' %}タスク{% else %}プロジェクト{% endif %}</th>
+          <th class="text-end">実働</th><th class="text-end">割合</th></tr>
+      </thead>
+      <tbody>
+        {% for item in breakdown.items %}
+          <tr>
+            <td>
+              <span class="d-inline-block rounded me-1" style="width:.8rem;height:.8rem;background:{{ item.color }}"></span>
+              {% if axis == 'task' %}{{ item.project_name }} / {{ item.name }}{% else %}{{ item.name }}{% endif %}
+            </td>
+            <td class="text-end">{{ item.seconds|hms }}</td>
+            <td class="text-end">{% widthratio item.ratio 1 100 %}％</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="text-body-secondary">この期間の記録はありません。</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if breakdown.total_seconds %}
+        <tfoot>
+          <tr class="fw-bold">
+            <td>合計</td><td class="text-end">{{ breakdown.total_seconds|hms }}</td><td></td>
+          </tr>
+        </tfoot>
+      {% endif %}
+    </table>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{{ breakdown.items|json_script:"composition-data" }}
+<script>
+(function () {
+  function hms(total) {
+    var h = Math.floor(total / 3600), m = Math.floor(total / 60) % 60, s = total % 60;
+    if (h > 0) return h + "時間" + m + "分" + s + "秒";
+    if (m > 0) return m + "分" + s + "秒";
+    return s + "秒";
+  }
+
+  // 日別バー: stats_daily を fetch
+  var dailyEl = document.getElementById("daily-chart");
+  if (dailyEl && window.Chart) {
+    fetch(dailyEl.dataset.url, { headers: { "X-Requested-With": "fetch" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        new Chart(dailyEl, {
+          type: "bar",
+          data: {
+            labels: data.series.map(function (d) { return d.date.slice(5); }),
+            datasets: [{
+              label: "実働(秒)",
+              data: data.series.map(function (d) { return d.seconds; }),
+              backgroundColor: "#4F46E5",
+            }],
+          },
+          options: {
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: function (c) { return hms(c.parsed.y); } } },
+            },
+            scales: { y: { ticks: { callback: function (v) { return Math.round(v / 3600) + "h"; } } } },
+          },
+        });
+      });
+  }
+
+  // 構成比: サーバーが埋めた breakdown.items を使う
+  var pieEl = document.getElementById("composition-chart");
+  var raw = document.getElementById("composition-data");
+  if (pieEl && raw && window.Chart) {
+    var items = [];
+    try { items = JSON.parse(raw.textContent) || []; } catch (e) { items = []; }
+    if (items.length) {
+      new Chart(pieEl, {
+        type: "doughnut",
+        data: {
+          labels: items.map(function (i) { return i.name; }),
+          datasets: [{
+            data: items.map(function (i) { return i.seconds; }),
+            backgroundColor: items.map(function (i, idx) {
+              return i.color || ["#4F46E5", "#059669", "#DB2777", "#D97706", "#0891B2"][idx % 5];
+            }),
+          }],
+        },
+        options: {
+          plugins: {
+            tooltip: { callbacks: { label: function (c) { return c.label + ": " + hms(c.parsed); } } },
+          },
+        },
+      });
+    }
+  }
+})();
+</script>
+{% endblock %}

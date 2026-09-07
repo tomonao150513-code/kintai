@@ -23,6 +23,14 @@
     </div>
   </div>
 
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h6">今週の日別稼働</h2>
+      <canvas id="week-chart" height="200"
+              data-url="{% url 'stats_daily' %}?from={{ week_from }}&to={{ week_to }}"></canvas>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-body">
       <h2 class="h5">計測を開始{% if running %}／切り替え{% endif %}</h2>
@@ -64,6 +72,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 (function () {
   function fmt(total) {
@@ -73,6 +82,31 @@
     if (h > 0) return h + "時間" + m + "分" + s + "秒";
     if (m > 0) return m + "分" + s + "秒";
     return s + "秒";
+  }
+
+  var weekEl = document.getElementById("week-chart");
+  if (weekEl && window.Chart) {
+    fetch(weekEl.dataset.url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        new Chart(weekEl, {
+          type: "bar",
+          data: {
+            labels: data.series.map(function (d) { return d.date.slice(5); }),
+            datasets: [{
+              data: data.series.map(function (d) { return d.seconds; }),
+              backgroundColor: "#4F46E5",
+            }],
+          },
+          options: {
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: function (c) { return fmt(c.parsed.y); } } },
+            },
+            scales: { y: { ticks: { callback: function (v) { return Math.round(v / 3600) + "h"; } } } },
+          },
+        });
+      });
   }
 
   var box = document.getElementById("running-timer");
