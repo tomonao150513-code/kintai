@@ -81,13 +81,14 @@
 - [x] `test_exports.py`（列順・BOM(EF BB BF)・CRLF・合計・実行中除外・ファイル名・xlsx 読み戻し（sheet 名・数値型）・0 件DL・不正範囲）→ **全 72 tests green**
 - **完了条件**: 期間・プロジェクト・タスク指定で CSV / Excel がダウンロードできる（[export-spec.md](export-spec.md) 準拠）→ ✅ 確認済み（runserver で CSV（先頭 3 バイト 239,187,191、合計行 `,,,15300,4:15:00,4.25,合計,,,,`）・XLSX（PK 署名、2 シート、実働秒数=int）・不正範囲は HTML フォーム）
 
-## P6 テスト整備・リファクタ
+## P6 テスト整備・リファクタ ✅ 完了（2026-09-07、ブランチ `feature/p6-hardening`）
 
-- [ ] カバレッジ確認（services はほぼ全パス）
-- [ ] `ruff` / `black` を CI ではなくローカル手順に明記、既存コード整形
-- [ ] `README.md`（リポジトリ直下）に起動方法を追記
-- [ ] 例外時・0 件時・不正入力時の画面挙動を一通り確認
-- **完了条件**: 主要ロジックにテストがあり、`pytest` / `ruff` が green
+- [x] `pytest-cov` を追加、`pyproject.toml` に coverage 設定（migrations/tests 除外）。`pytest -q --cov` で計測（全体 87%、services は aggregation 100% / timer 92% / formatting 95% / exports 94–100%）
+- [x] `ruff` / `black` / `pytest`（単一テスト指定含む）をローカル手順として明記（[README.md](../README.md)・[CLAUDE.md](../CLAUDE.md)）、既存コードは整形済み
+- [x] リポジトリ直下に `README.md`（セットアップ・コマンド・構成・画面）
+- [x] `CLAUDE.md` の status/commands を現状（P0–P5 完了）に更新、`.env` は BOM なしにする注意を明記
+- [x] 例外時・0 件時・不正入力時の画面挙動テスト: `test_views_crud.py`（ダッシュボード空、project/task の作成・アーカイブ往復、timer start/stop/switch、手動追加のハッピー/重複エラー、entry 編集・削除、実行中削除ブロック、レポート 0 件・不正日付フォールバック）/ `test_templatetags.py`
+- **完了条件**: 主要ロジックにテストがあり、`pytest` / `ruff` が green → ✅（90 tests green、ruff/black クリーン、カバレッジ 87%）
 
 ## P7（将来）チーム対応
 

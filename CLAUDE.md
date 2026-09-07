@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Design phase. **No application code exists yet** — the repo currently contains only specs under `docs/`.
-The next step is implementing **P0** from [docs/task-breakdown.md](docs/task-breakdown.md).
+Django app, working. **P0–P5 complete** (env, models+admin, punch+dashboard, entries CRUD +
+project/task screens, report+charts, CSV/Excel export). P6 = test/hardening, P7 = team support
+(future). Progress and per-phase notes: [docs/task-breakdown.md](docs/task-breakdown.md).
+Each phase from P1 on lives on its own `feature/pN-*` branch; the user reviews and merges.
 
-This is a task-based time-tracking ("勤怠") system to be built with Django: record how long you work
-on each task via start/stop punches, then aggregate / chart / export the results. Single-user for now,
-designed so it can later extend to a team. UI and stored labels are Japanese; code identifiers are English.
+Task-based time-tracking ("勤怠"): record how long you work on each task via start/stop punches,
+then aggregate / chart / export. Single-user for now, modelled so it can extend to a team.
+UI and stored labels are Japanese; code identifiers are English.
 
 ## Source of truth
 
@@ -37,26 +39,29 @@ When you change behavior that the spec or docs describe, update those files in t
   `main`, commit the phase's work there, and leave merging to `main` to the user after their review.
   P0 landed directly on `main` ("初めのコミット"); every phase after it gets its own branch.
 
-## Planned commands
+## Commands
 
-Once P0 scaffolds the Django project (Windows / PowerShell — see [docs/dev-setup.md](docs/dev-setup.md)):
+Windows / PowerShell (see [docs/dev-setup.md](docs/dev-setup.md), [README.md](README.md)):
 
 ```powershell
 .\.venv\Scripts\Activate.ps1        # activate venv (create once: python -m venv .venv)
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py runserver           # http://127.0.0.1:8000/
+python manage.py runserver           # http://127.0.0.1:8000/  (dev user: admin / admin12345)
 
-pytest                               # full test suite (pytest-django)
-pytest attendance/tests/test_timer.py            # one file
-pytest attendance/tests/test_timer.py::test_stop # one test
-ruff check .
-black --check .
+pytest -q                                          # full suite (pytest-django, in-memory sqlite)
+pytest attendance/tests/test_timer.py             # one file
+pytest attendance/tests/test_timer.py::test_stop_when_idle_raises  # one test
+pytest -q --cov --cov-report=term-missing         # with coverage
+ruff check .                                       # lint  (black . / black --check . to format)
 ```
 
-`requirements.txt` target: `Django>=5.1,<6.0`, `django-environ`, `openpyxl`, `pytest`, `pytest-django`, `ruff`, `black`.
-Settings read from `.env` via `django-environ`; copy `.env.example` to `.env` first. No frontend build tooling.
+`requirements.txt`: `Django>=5.1,<6.0`, `django-environ`, `openpyxl`, `pytest`, `pytest-django`,
+`pytest-cov`, `ruff`, `black`. Settings read from `.env` via `django-environ`; copy `.env.example`
+to `.env` first. `.env` must be BOM-less (write with an editor that saves plain UTF-8; the Windows
+PowerShell `Set-Content -Encoding utf8` adds a BOM that django-environ rejects). No frontend build
+tooling — Bootstrap 5 and Chart.js load from CDN in templates.
 
 ## Architecture (big picture)
 

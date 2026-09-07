@@ -3,5 +3,6 @@ django-environ
 openpyxl
 pytest
 pytest-django
+pytest-cov
 ruff
 black

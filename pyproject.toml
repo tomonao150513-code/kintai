@@ -2,6 +2,14 @@
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 
+[tool.coverage.run]
+source = ["attendance", "accounts", "config"]
+omit = ["*/migrations/*", "*/tests/*", "*/wsgi.py", "*/asgi.py", "manage.py"]
+
+[tool.coverage.report]
+skip_covered = false
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
+
 [tool.black]
 line-length = 100
 target-version = ["py313"]
