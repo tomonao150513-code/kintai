@@ -1,0 +1,31 @@
+{% extends "attendance/base.html" %}
+
+{% block title %}エクスポート | タスク別勤怠{% endblock %}
+
+{% block content %}
+  <h1 class="h3 mb-3">エクスポート</h1>
+  <p class="text-body-secondary">
+    期間内の<strong>完了した</strong>勤怠記録を CSV / Excel で出力します（計測中の記録は含まれません）。
+  </p>
+
+  <form method="get" class="card" style="max-width: 720px;">
+    <div class="card-body">
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors|striptags }}</div>
+      {% endif %}
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="col-sm-6">
+            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button formaction="{% url 'export_csv' %}" class="btn btn-primary">CSV でダウンロード</button>
+        <button formaction="{% url 'export_xlsx' %}" class="btn btn-success">Excel でダウンロード</button>
+      </div>
+    </div>
+  </form>
+{% endblock %}

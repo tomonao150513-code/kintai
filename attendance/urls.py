@@ -27,4 +27,8 @@ urlpatterns = [
     path("api/stats/daily/", views.stats_daily, name="stats_daily"),
     path("api/stats/by-project/", views.stats_by_project, name="stats_by_project"),
     path("api/stats/by-task/", views.stats_by_task, name="stats_by_task"),
+    # エクスポート
+    path("export/", views.export_page, name="export_page"),
+    path("export/csv/", views.export_csv, name="export_csv"),
+    path("export/xlsx/", views.export_xlsx, name="export_xlsx"),
 ]

@@ -9,7 +9,15 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from attendance.exceptions import TimerError
-from attendance.forms import EntryFilterForm, ProjectForm, TaskForm, TimeEntryForm
+from attendance.exports import csv_response, xlsx_response
+from attendance.exports.rows import completed_entries
+from attendance.forms import (
+    EntryFilterForm,
+    ExportForm,
+    ProjectForm,
+    TaskForm,
+    TimeEntryForm,
+)
 from attendance.models import Project, Task, TimeEntry
 from attendance.services import aggregation
 from attendance.services import timer as timer_service
@@ -440,3 +448,33 @@ def stats_by_task(request):
     data["to"] = date_to.isoformat()
     data["project_id"] = project.pk if project else None
     return _json_no_store(data)
+
+
+# --- エクスポート（S-10 / P5） -----------------------------------------------------
+
+
+def export_page(request):
+    form = ExportForm(request.GET or None, user=request.user)
+    return render(request, "attendance/export.html", {"form": form})
+
+
+def _export(request, responder):
+    form = ExportForm(request.GET or None, user=request.user)
+    if not form.is_valid():
+        return render(request, "attendance/export.html", {"form": form})
+    entries = completed_entries(
+        request.user,
+        form.cleaned_data["date_from"],
+        form.cleaned_data["date_to"],
+        project=form.cleaned_data.get("project"),
+        task=form.cleaned_data.get("task"),
+    )
+    return responder(entries, form.cleaned_data["date_from"], form.cleaned_data["date_to"])
+
+
+def export_csv(request):
+    return _export(request, csv_response)
+
+
+def export_xlsx(request):
+    return _export(request, xlsx_response)

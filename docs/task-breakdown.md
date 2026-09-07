@@ -70,14 +70,16 @@
 - [x] tests: `test_aggregation.py` 拡充（by_project 降順/ratio/色、空、by_task の project 絞り込み）/ `test_stats_api.py`（login必須、zero-fill、no-store、400、本人スコープ）→ **全 65 tests green**
 - **完了条件**: 期間指定でプロジェクト別・日別が数値とグラフで見える → ✅ 確認済み（runserver で report ページ、`/api/stats/daily/`（zero-fill・no-store）、`/api/stats/by-project/`、不正日付 400、ダッシュボード週次バー）
 
-## P5 CSV / Excel エクスポート
+## P5 CSV / Excel エクスポート ✅ 完了（2026-09-07、ブランチ `feature/p5-export`）
 
-- [ ] `attendance/exports/rows.py`（クエリ → 行 dict、合計行）
-- [ ] `attendance/exports/csv.py`（UTF-8 BOM、CRLF、ファイル名 `kintai_{from}_{to}.csv`）
-- [ ] `attendance/exports/xlsx.py`（openpyxl、明細シート + 集計シート、freeze_panes、オートフィルタ）
-- [ ] ビュー: `export_page` / `export_csv` / `export_xlsx`、`export.html`
-- [ ] `test_exports.py`（列順・BOM・合計・実行中除外・ファイル名・xlsx 読み戻し）
-- **完了条件**: 期間・プロジェクト・タスク指定で CSV / Excel がダウンロードできる（[export-spec.md](export-spec.md) 準拠）
+- [x] `attendance/exports/rows.py`（`completed_entries` クエリ、`build_rows` = 11 列の行 dict + 合計行、`project_summary`）
+- [x] `attendance/exports/csv.py`（UTF-8 BOM、CRLF、`text/csv; charset=utf-8`、`kintai_{from}_{to}.csv`）
+- [x] `attendance/exports/xlsx.py`（openpyxl、`勤怠明細` シート（ヘッダ太字+塗り、freeze A2、オートフィルタ、実働秒数/実働時間h は数値型、合計行太字）+ `集計` シート（プロジェクト別 + 総合計）、列幅自動）
+- [x] `forms.ExportForm`（date_from/date_to 必須、project/task 任意、初期値=今月、from>to はエラー）
+- [x] ビュー: `export_page` / `export_csv` / `export_xlsx`（不正入力は `export.html` を再表示してダウンロードしない、0 件でもヘッダ+合計行を返す）、`export.html`（`formaction` で CSV/Excel を出し分け）
+- [x] `base.html` ナビに「エクスポート」追加
+- [x] `test_exports.py`（列順・BOM(EF BB BF)・CRLF・合計・実行中除外・ファイル名・xlsx 読み戻し（sheet 名・数値型）・0 件DL・不正範囲）→ **全 72 tests green**
+- **完了条件**: 期間・プロジェクト・タスク指定で CSV / Excel がダウンロードできる（[export-spec.md](export-spec.md) 準拠）→ ✅ 確認済み（runserver で CSV（先頭 3 バイト 239,187,191、合計行 `,,,15300,4:15:00,4.25,合計,,,,`）・XLSX（PK 署名、2 シート、実働秒数=int）・不正範囲は HTML フォーム）
 
 ## P6 テスト整備・リファクタ
 

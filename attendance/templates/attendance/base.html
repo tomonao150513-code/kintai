@@ -32,7 +32,9 @@
           <li class="nav-item">
             <a class="nav-link" href="{% url 'report' %}">レポート</a>
           </li>
-          {# エクスポートは P5 で追加 #}
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'export_page' %}">エクスポート</a>
+          </li>
         </ul>
         {% if user.is_authenticated %}
           <div class="d-flex align-items-center gap-2">

@@ -117,6 +117,49 @@ class TimeEntryForm(forms.ModelForm):
         return cleaned
 
 
+class ExportForm(forms.Form):
+    date_from = forms.DateField(
+        label="開始日", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"})
+    )
+    date_to = forms.DateField(
+        label="終了日", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"})
+    )
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.none(),
+        required=False,
+        label="プロジェクト",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    task = forms.ModelChoiceField(
+        queryset=Task.objects.none(),
+        required=False,
+        label="タスク",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            today = timezone.localdate()
+            self.fields["date_from"].initial = today.replace(day=1)
+            self.fields["date_to"].initial = today
+        if user is not None:
+            self.fields["project"].queryset = Project.objects.filter(owner=user).order_by("name")
+            self.fields["task"].queryset = (
+                Task.objects.filter(project__owner=user)
+                .select_related("project")
+                .order_by("project__name", "name")
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        date_from = cleaned.get("date_from")
+        date_to = cleaned.get("date_to")
+        if date_from and date_to and date_from > date_to:
+            raise forms.ValidationError("開始日は終了日以前にしてください。")
+        return cleaned
+
+
 class EntryFilterForm(forms.Form):
     date_from = forms.DateField(
         required=False,
